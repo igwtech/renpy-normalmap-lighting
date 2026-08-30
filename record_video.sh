@@ -9,34 +9,45 @@ cd "$(dirname "$0")"
 DISP=:99
 OUT="${1:-poc_video.mp4}"
 MARKER="poc_video_mouse_marker"
+START_MARKER="poc_video_start_marker"
 
-rm -f "$MARKER"
+rm -f "$MARKER" "$START_MARKER" poc_video_cues.json
 
 ## Virtual X server at the game's resolution.
-Xvfb "$DISP" -screen 0 1280x720x24 -nolisten tcp &
+## Larger than the game window: Ren'Py shrinks its window when the screen is
+## exactly the game's size, so we capture the window's own rectangle instead.
+Xvfb "$DISP" -screen 0 1920x1080x24 -nolisten tcp &
 XVFB_PID=$!
 trap 'kill $XVFB_PID 2>/dev/null || true' EXIT
 sleep 1
 
-## Launch the scripted demo.
+## Launch the scripted demo. A throwaway savedir keeps a window size
+## remembered from desktop sessions out of the recording (no letterboxing).
+SAVEDIR="$(mktemp -d)"
 env -u WAYLAND_DISPLAY DISPLAY="$DISP" SDL_VIDEODRIVER=x11 SDL_AUDIODRIVER=dummy \
-    RENPY_POC_VIDEO=1 ./renpy-sdk/renpy.sh . &
+    RENPY_POC_VIDEO=1 ./renpy-sdk/renpy.sh . --savedir "$SAVEDIR" &
 GAME_PID=$!
 
-## Wait for the game window to exist.
-for i in $(seq 1 60); do
-    if DISPLAY="$DISP" xdotool search --name "RenpyNormals" >/dev/null 2>&1; then
-        break
-    fi
-    sleep 0.5
+## Wait for the demo's start marker so the recording (and therefore the
+## timeline in poc_video_cues.json) begins right at the demo's t=0.
+for i in $(seq 1 300); do
+    [ -f "$START_MARKER" ] && break
+    sleep 0.1
 done
-sleep 1
 
-## Park the cursor out of the way.
-DISPLAY="$DISP" xdotool mousemove 1279 719
+## Find the game window's exact rectangle to capture.
+WID=$(DISPLAY="$DISP" xdotool search --name "RenpyNormals" | head -1)
+eval "$(DISPLAY="$DISP" xdotool getwindowgeometry --shell "$WID")"
+## libx264/yuv420p needs even dimensions.
+WIDTH=$((WIDTH / 2 * 2))
+HEIGHT=$((HEIGHT / 2 * 2))
+echo "Capturing window ${WIDTH}x${HEIGHT} at +${X},${Y}"
+
+## Park the cursor out of the way (bottom-right corner of the window).
+DISPLAY="$DISP" xdotool mousemove $((X + WIDTH - 1)) $((Y + HEIGHT - 1))
 
 ## Record.
-ffmpeg -y -loglevel error -f x11grab -framerate 30 -video_size 1280x720 -i "$DISP" \
+ffmpeg -y -loglevel error -f x11grab -framerate 30 -video_size "${WIDTH}x${HEIGHT}" -i "$DISP+${X},${Y}" \
     -c:v libx264 -preset medium -crf 18 -pix_fmt yuv420p -movflags +faststart \
     "$OUT" &
 FF_PID=$!
@@ -46,18 +57,20 @@ FF_PID=$!
 (
     while kill -0 "$GAME_PID" 2>/dev/null; do
         if [ -f "$MARKER" ]; then
-            python3 - <<'EOF'
+            WIN_X="$X" WIN_Y="$Y" WIN_W="$WIDTH" WIN_H="$HEIGHT" python3 - <<'EOF'
 import math, os, subprocess, time
 env = dict(os.environ, DISPLAY=":99")
+wx, wy = int(os.environ["WIN_X"]), int(os.environ["WIN_Y"])
+ww, wh = int(os.environ["WIN_W"]), int(os.environ["WIN_H"])
 t0 = time.time()
 while time.time() - t0 < 12.0:
     t = time.time() - t0
-    x = 660 + 260 * math.sin(t * 1.1)
-    y = 360 + 210 * math.sin(t * 0.7 + 1.3)
+    x = wx + ww * 0.515 + ww * 0.20 * math.sin(t * 1.1)
+    y = wy + wh * 0.50 + wh * 0.29 * math.sin(t * 0.7 + 1.3)
     subprocess.run(["xdotool", "mousemove", str(int(x)), str(int(y))], env=env)
     time.sleep(0.03)
-# Park the cursor out of frame again before the end card.
-subprocess.run(["xdotool", "mousemove", "1279", "719"], env=env)
+# Park the cursor in the window corner again before the end card.
+subprocess.run(["xdotool", "mousemove", str(wx + ww - 1), str(wy + wh - 1)], env=env)
 EOF
             break
         fi
