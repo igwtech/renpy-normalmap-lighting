@@ -6,7 +6,7 @@ A proof of concept for dynamically re-lighting visual novel character sprites in
 [Ren'Py](https://www.renpy.org/) using a tangent-space normal map and a small GLSL
 shader — no pre-rendered lighting variants, no per-scene sprite edits.
 
-📺 **Video demo:** _(YouTube link pending)_
+📺 **Video demo:** [watch on YouTube](https://youtu.be/9Bm6--sLJgY)
 
 | Daylight | Sunset | Night |
 |---|---|---|
