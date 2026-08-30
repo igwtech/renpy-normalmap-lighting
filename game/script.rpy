@@ -1,16 +1,18 @@
 ## ============================================================================
-## PoC: dynamic sprite lighting with albedo + normal map.
+## PoC: dynamic sprite lighting with albedo + normal map + depth map.
 ##
-## The sprite is defined as a Model with two textures (tex0 = albedo,
-## tex1 = normal map) and the "normals.spritelight" shader. The light_*
-## transforms (in shaders.rpy) only change the uniforms, so the same
-## image is re-lit without touching the PNG.
+## The sprite is defined as a Model with three textures (tex0 = albedo,
+## tex1 = normal map, tex2 = depth map) and the "normals.spritelight"
+## shader. The light_* transforms (in shaders.rpy) only change the
+## uniforms, so the same image is re-lit without touching the PNG.
+## The depth map adds self-shadowing: the skirt drops a shadow onto the
+## legs, the chin onto the neck, the hair onto the face.
 ## ============================================================================
 
 define narrator_c = Character(None, what_italic=True)
 
-## Lightable sprite: albedo + normal map + shader.
-image girl = Model().texture("images/girl_albedo.png", fit=True).texture("images/girl_normal.png").shader("normals.spritelight")
+## Lightable sprite: albedo + normal map + depth map + shader.
+image girl = Model().texture("images/girl_albedo.png", fit=True).texture("images/girl_normal.png").texture("images/girl_depth.png").shader("normals.spritelight")
 
 ## Flat reference sprite (no shader).
 image girl plain = "images/girl_albedo.png"
@@ -34,7 +36,7 @@ label start:
 
     scene bg dark with dissolve
 
-    narrator_c "Proof of concept: sprite lighting with {b}albedo + normal map{/b} in Ren'Py."
+    narrator_c "Proof of concept: sprite lighting with {b}albedo + normal map + depth map{/b} in Ren'Py."
 
     ## --- Quick comparison -------------------------------------------------
 
@@ -66,6 +68,9 @@ label hub:
 
         "Light from below (horror)":
             jump scene_below
+
+        "Self-shadows on/off (depth map)":
+            jump scene_shadow
 
         "Campfire (flickering point light)":
             jump scene_fire
@@ -112,6 +117,18 @@ label scene_below:
     scene bg dark with dissolve
     show girl at girl_stage, light_below with dissolve
     narrator_c "{b}Light from below{/b}: the classic horror-story flashlight. Same normal map, direction flipped: now the downward-facing planes light up."
+    jump hub
+
+
+label scene_shadow:
+    scene bg dark with dissolve
+
+    show girl at girl_stage, dirlight(direction=(0.0, 1.0, 0.35), color=(1.30, 1.26, 1.18), ambient=(0.05, 0.05, 0.06), shadow=0.0) with dissolve
+    narrator_c "Same harsh top light, {b}self-shadows OFF{/b}: only the normal map works. The skirt is lit, but the legs right under it are lit too — nothing blocks the light."
+
+    show girl at girl_stage, dirlight(direction=(0.0, 1.0, 0.35), color=(1.30, 1.26, 1.18), ambient=(0.05, 0.05, 0.06), shadow=0.9, shadow_soft=0.018) with dissolve
+    narrator_c "{b}Self-shadows ON{/b}: the shader marches through the depth map towards the light. Now the skirt hem drops a shadow band onto the thighs, the chin shadows the neck, and the hair shadows the shoulders."
+
     jump hub
 
 

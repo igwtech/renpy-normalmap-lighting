@@ -1,10 +1,12 @@
-# Dynamic Sprite Lighting in Ren'Py (albedo + normal map)
+# Dynamic Sprite Lighting in Ren'Py (albedo + normal map + depth map)
 
-**One sprite. One normal map. One shader. Only the light changes.**
+**One sprite. One normal map. One depth map. One shader. Only the light changes.**
 
 A proof of concept for dynamically re-lighting visual novel character sprites in
-[Ren'Py](https://www.renpy.org/) using a tangent-space normal map and a small GLSL
-shader — no pre-rendered lighting variants, no per-scene sprite edits.
+[Ren'Py](https://www.renpy.org/) using a tangent-space normal map, a grayscale
+depth map and a small GLSL shader — no pre-rendered lighting variants, no
+per-scene sprite edits. The depth map adds **self-shadowing**: the skirt drops a
+shadow onto the legs, the chin onto the neck, the hair onto the shoulders.
 
 📺 **Video demo:** [watch on YouTube](https://youtu.be/9Bm6--sLJgY)
 
@@ -16,6 +18,10 @@ shader — no pre-rendered lighting variants, no per-scene sprite edits.
 |---|---|---|
 | ![top](poc_shots/poc_top.png) | ![below](poc_shots/poc_below.png) | ![fire](poc_shots/poc_fire.png) |
 
+| Self-shadows OFF (normal map only) | Self-shadows ON (depth map march) |
+|---|---|
+| ![shadow off](poc_shots/poc_shadow_off.png) | ![shadow on](poc_shots/poc_shadow_on.png) |
+
 ## How it works
 
 Ren'Py 7.4+ ships a model-based renderer that lets you build a displayable out of
@@ -25,15 +31,17 @@ multiple textures and a custom shader. The whole trick is three pieces:
 flowchart LR
     A["girl_albedo.png<br/>(tex0: color + alpha)"] --> M
     N["girl_normal.png<br/>(tex1: tangent-space normals)"] --> M
+    D["girl_depth.png<br/>(tex2: height field, white = near)"] --> M
     M["Model() displayable<br/>+ shader 'normals.spritelight'"] --> R["Rendered sprite"]
     T["ATL transform<br/>(light_day, light_night, …)"] -- "uniforms:<br/>u_light_dir, u_light_color,<br/>u_ambient_color, …" --> M
 ```
 
-### 1. The sprite is a `Model` with two textures
+### 1. The sprite is a `Model` with three textures
 
 ```renpy
 image girl = Model().texture("images/girl_albedo.png", fit=True) \
                     .texture("images/girl_normal.png") \
+                    .texture("images/girl_depth.png") \
                     .shader("normals.spritelight")
 ```
 
@@ -62,6 +70,35 @@ gl_FragColor = vec4(color, albedo.a);
 One gotcha: Ren'Py loads textures with **premultiplied alpha**, so the additive
 terms (specular, rim) must be multiplied by `albedo.a`, or they glow outside the
 sprite's silhouette.
+
+### 2b. The depth map adds self-shadowing
+
+The depth map is treated as a height field (white = closer to the viewer,
+`u_depth_scale` sets how "thick" the character is relative to the sprite
+height). For every fragment, the shader **raymarches from the pixel towards the
+light** through the depth texture; if a taller feature blocks the ray, the
+diffuse and specular terms get darkened (ambient and rim are left alone):
+
+```glsl
+for (int i = 1; i <= STEPS; i++) {
+    float t = t_max * float(i) / float(STEPS);
+    vec2 suv = uv + vec2(L.x * t / aspect, -L.y * t);   // walk towards the light
+    float h_sample = texture2D(tex2, suv).r * u_depth_scale;
+    float ray_h = frag_h + L.z * t;                     // ray rises as it travels
+    occ = max(occ, clamp((h_sample - ray_h - bias) / soft, 0.0, 1.0));
+}
+shade = 1.0 - u_shadow_strength * occ;
+```
+
+That's what puts the shadow band on the thighs under the skirt hem with a top
+light — and flips it (skirt shadowing the torso) when the light comes from
+below. The point light also uses the per-pixel height, so closer features
+(nose, chest) really are closer to the light. Every light transform accepts
+`shadow=` (strength, `0.0` disables), `shadow_soft=` (penumbra width) and
+`depth_scale=`.
+
+Tip: keep the depth map **smooth**. Dithering noise in a painted gradient shows
+up as speckled shadow edges; a 2 px Gaussian blur on the game copy fixed it here.
 
 ### 3. Lights are just ATL transforms
 
@@ -96,11 +133,11 @@ follows the cursor in real time.
 | File | What it is |
 |---|---|
 | `game/shaders.rpy` | Shader registration + all lighting transforms/presets |
-| `game/script.rpy` | Interactive demo: menu hub with 8 lighting scenarios |
+| `game/script.rpy` | Interactive demo: menu hub with 9 lighting scenarios |
 | `game/videodemo.rpy` | Scripted, non-interactive run for screen recording |
 | `game/autotest.rpy` | Headless self-check: renders every preset to `poc_shots/` |
 | `record_video.sh` | Records the demo to `poc_video.mp4` via Xvfb + ffmpeg |
-| `sprites/` | Source art: albedo, normal map, and Krita (.kra) files |
+| `sprites/` | Source art: albedo, normal map, depth map, and Krita (.kra) files |
 
 ## Running it
 

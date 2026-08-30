@@ -54,11 +54,11 @@ init python:
             f.write("go")
 
 image video_title = Text(
-    "{b}Dynamic Sprite Lighting in Ren'Py{/b}\n{size=26}{color=#9ab}one sprite  +  one normal map  +  one shader{/color}{/size}",
+    "{b}Dynamic Sprite Lighting in Ren'Py{/b}\n{size=30}{color=#cde}UPDATE: depth-map self-shadows{/color}{/size}\n{size=26}{color=#9ab}one sprite  +  one normal map  +  one depth map  +  one shader{/color}{/size}",
     size=50, text_align=0.5, layout="subtitle")
 
 image video_end = Text(
-    "{b}Same PNG. Same shader.\nOnly the light changes.{/b}\n{size=26}{color=#9ab}Ren'Py 8.6 · Model() + register_shader() · lighting via ATL transforms{/color}{/size}",
+    "{b}Same PNG. Same shader.\nNow with real self-shadows.{/b}\n{size=26}{color=#9ab}Ren'Py 8.6 · Model() + register_shader() · depth-map shadow marching · lighting via ATL{/color}{/size}",
     size=44, text_align=0.5, layout="subtitle")
 
 
@@ -110,17 +110,26 @@ label poc_video:
     show girl at girl_stage, light_top with dissolve
     $ vsay("top", "{b}Harsh top light{/b} — a white spotlight straight overhead, no ambient. Interrogation mood.", 7.0)
 
+    ## --- NEW: depth-map self-shadows ---------------------------------------
+
+    scene bg dark with dissolve
+    show girl at girl_stage, dirlight(direction=(0.0, 1.0, 0.35), color=(1.30, 1.26, 1.18), ambient=(0.05, 0.05, 0.06), shadow=0.0) with dissolve
+    $ vsay("shadow_off", "{b}NEW — self-shadows OFF{/b} — same top light, normal map only. The legs under the skirt stay lit: nothing blocks the light.", 9.0)
+
+    show girl at girl_stage, dirlight(direction=(0.0, 1.0, 0.35), color=(1.30, 1.26, 1.18), ambient=(0.05, 0.05, 0.06), shadow=0.9, shadow_soft=0.018) with dissolve
+    $ vsay("shadow_on", "{b}Self-shadows ON{/b} — the shader marches through a depth map: the skirt shadows the thighs, the chin shadows the neck, the hair shadows the shoulders.", 11.0)
+
     scene bg dark with dissolve
     show girl at girl_stage, light_below with dissolve
-    $ vsay("below", "{b}Light from below{/b} — the classic horror flashlight. Same normal map, direction flipped.", 7.0)
+    $ vsay("below", "{b}Light from below{/b} — the classic horror flashlight. The shadows flip with it: the skirt hem now darkens the torso.", 8.0)
 
     scene bg fire with dissolve
     show girl at girl_stage, light_fire with dissolve
-    $ vsay("fire", "{b}Campfire{/b} — a warm point light at her feet, with distance falloff and ATL-animated flicker.", 10.0)
+    $ vsay("fire", "{b}Campfire{/b} — a warm point light at her feet, with distance falloff and ATL-animated flicker. The point light reads the depth map too.", 10.0)
 
     scene bg dark with dissolve
     show girl at girl_stage, light_orbit with dissolve
-    $ vsay("orbit", "{b}Orbiting light{/b} — the light direction spins around the character. Uniforms interpolated directly in ATL.", 10.0)
+    $ vsay("orbit", "{b}Orbiting light{/b} — the light spins around the character and the self-shadows sweep with it. Uniforms interpolated directly in ATL.", 10.0)
 
     scene bg dark with dissolve
     show girl at girl_stage, light_mouse with dissolve

@@ -27,6 +27,8 @@ label poc_autotest:
             ("night", "bg night", light_night),
             ("top", "bg dark", light_top),
             ("below", "bg dark", light_below),
+            ("shadow_off", "bg dark", dirlight(direction=(0.0, 1.0, 0.35), color=(1.30, 1.26, 1.18), ambient=(0.05, 0.05, 0.06), shadow=0.0)),
+            ("shadow_on", "bg dark", dirlight(direction=(0.0, 1.0, 0.35), color=(1.30, 1.26, 1.18), ambient=(0.05, 0.05, 0.06), shadow=0.9, shadow_soft=0.018)),
             ("fire", "bg fire", light_fire),
             ("orbit", "bg dark", light_orbit),
             ("mouse", "bg dark", light_mouse),
