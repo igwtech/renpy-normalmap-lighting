@@ -8,7 +8,7 @@ depth map and a small GLSL shader — no pre-rendered lighting variants, no
 per-scene sprite edits. The depth map adds **self-shadowing**: the skirt drops a
 shadow onto the legs, the chin onto the neck, the hair onto the shoulders.
 
-📺 **Video demo:** [watch on YouTube](https://youtu.be/9Bm6--sLJgY)
+📺 **Video demo:** [depth-map self-shadows update](https://youtu.be/CFrd1Gxh_x4) · [original normal-map PoC](https://youtu.be/9Bm6--sLJgY)
 
 | Daylight | Sunset | Night |
 |---|---|---|
